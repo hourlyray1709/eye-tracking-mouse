@@ -6,27 +6,38 @@ import threading
 from camera import * 
 from shared import SharedFrame 
 from model import * 
+import tkinter as tk 
 
 frame = SharedFrame() 
 
-def main(): 
-    camera_thread = threading.Thread(target=camera_loop, args=(frame,))
-    camera_thread.start() 
+# launch camera 
+camera_thread = threading.Thread(target=camera_loop, args=(frame,))
+camera_thread.start() 
 
-    # initial calibration 
-    # - placeholder 
+def gui_train(): 
+    user = input("File name of the dataset: \n") 
+    train("./dataset/" + user + ".csv")
 
+root = tk.Tk() 
+root.title("Eye Tracker Control Panel")
+root.geometry("300x150")
 
-    # prediction loop -> should change to while true: predict, when calibration is finished 
-    while True: 
-        feature_extraction(frame)
-        render(frame) 
+calibration_button = tk.Button(
+    root,
+    text="Calibration", 
+    command=lambda: get_calibration_data(frame),
+    width=20, 
+    height=2
+)
+calibration_button.pack()
 
-        key = cv2.waitKey(1)
-        if key == ord("q"): 
-            break 
+train_button = tk.Button(
+    root, 
+    text="Launch Training", 
+    command=gui_train, 
+    width=20, 
+    height=2
+)
+train_button.pack()
 
-    cv2.destroyAllWindows() 
-
-
-main() 
+root.mainloop()
