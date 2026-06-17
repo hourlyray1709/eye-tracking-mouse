@@ -41,9 +41,8 @@ def camera_loop(shared_frame: SharedFrame):
         cv2.waitKey(1) 
 
 def render(shared_frame: SharedFrame): 
-    with shared_frame.lock: 
-        if not (shared_frame.frame is None): 
-            frame = shared_frame.frame.copy() 
-            cv2.imshow("Camera", frame)
+    if not (shared_frame.frame is None): 
+        frame = shared_frame.frame.copy() 
+        cv2.imshow("Camera", frame)
             
         
