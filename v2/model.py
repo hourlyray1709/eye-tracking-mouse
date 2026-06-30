@@ -1,4 +1,5 @@
-from sklearn.ensemble import RandomForestClassifier 
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.linear_model import Ridge 
 import numpy as np 
 import math 
 import pickle 
@@ -141,5 +142,31 @@ class FeatureExtractor:
             y = int(landmark.y * h) 
             cv2.circle(img, (x,y), 3, (255, 0, 0))
 
+class DataCollector: 
+    def __init__(self): 
+        self.X = [] 
+        self.y = [] 
 
-        
+    def collect(self, feature, target): 
+        self.X.append(feature)
+        self.y.append(target) 
+
+class RegressionModel: 
+    def __init__(self): 
+        base_regressor = Ridge(random_state=123) 
+        self.regressor = MultiOutputRegressor(base_regressor)
+        self.collector = DataCollector() 
+    
+    def train(self): 
+        self.regressor.fit(self.collector.X, self.collector.y) 
+    
+    def predict(self, feature): 
+        return self.regressor.predict([feature]) 
+    
+    def save(self, path="v2/model/temporary_regressor.pkl"): 
+        with open(path, "wb") as file: 
+            pickle.dump(self, file) 
+    
+    def load(self, path="v2/model/temporary_regressor.pkl"): 
+        with open(path, "rb") as file: 
+            return pickle.load(file)
