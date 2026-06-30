@@ -1,100 +1,128 @@
-import numpy as np 
-from sklearn.multioutput import MultiOutputRegressor 
-from sklearn.neural_network import MLPRegressor 
 import cv2 
-import threading 
-from camera import * 
-from shared import SharedFrame 
+from gui import *
 from model import * 
-import tkinter as tk 
-import pyautogui
-
-pyautogui.FAILSAFE = False 
-
-# modifiable parameters 
-display_height = 1200 
-display_width = 1920
-
-frame = SharedFrame() 
-
-camera_thread = threading.Thread(target=camera_loop, args=(frame,))
-camera_thread.start() 
-
-def gui_calibration(): 
-    get_calibration_data(frame) 
-
-def gui_train(): 
-    user = input("File name of the dataset: \n") 
-    train("./dataset/" + user + ".csv")
-
-def smooth_predictions(predictions, current_mouse_pos, display_width, display_height): 
-    alpha = 0.1 
-    pred_x = predictions[0] * display_width
-    pred_y = predictions[1] * display_height
-
-    x = current_mouse_pos[0] * alpha + pred_x * (1-alpha)
-    y = current_mouse_pos[1] * alpha + pred_y * (1-alpha)
-    return int(x),int(y)
+import pyautogui  
 
 
-def gui_playground(): 
-    user = input("File name of the model: \n") 
-    model = load_model(user)
-    cv2.namedWindow("Playground", cv2.WINDOW_NORMAL)
-    cv2.setWindowProperty(
-        "Playground", 
-        cv2.WND_PROP_FULLSCREEN, 
-        cv2.WINDOW_FULLSCREEN
-    )
+# display config 
+SCREEN_WIDTH = 1920 
+SCREEN_HEIGHT = 1200
+winname = "Main"
+status = "Normal"
+cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
+cv2.setWindowProperty(winname, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-    while True: 
-        predictions = predict(frame, model)
-        current_mouse_pos = pyautogui.position()
-        if predictions is not None: 
-            x,y = smooth_predictions(predictions, current_mouse_pos, display_width, display_height)
-            if x < 0: 
-                x = 0 
-            elif x > display_width: 
-                x = display_width 
-            if y < 0: 
-                y = 0 
-            elif y > display_height: 
-                y = display_height
-            pyautogui.moveTo(x, y)
-
-        key = cv2.waitKey(1)
-        if key == ord("q"): 
-            break 
+# MODEL CONFIGS 
+model_path = "model/depth_0.pkl"
 
 
 
-root = tk.Tk() 
-root.title("Eye Tracker Control Panel")
-root.geometry("300x300")
-
-calibration_button = tk.Button(
-    root,
-    text="Launch Calibration", 
-    command=lambda: get_calibration_data(frame),
-    width=20, 
-    height=2
-).pack()
+# set up 
+feature_extractor = FeatureExtractor()
 
 
-train_button = tk.Button(
-    root, 
-    text="Launch Training", 
-    command=gui_train, 
-    width=20, 
-    height=2
-).pack()
+cap = cv2.VideoCapture(0)
+ret, frame = cap.read() 
+#test_recursive_data_collector = RecursiveQuadDataCollector(frame_width=frame.shape[:2][0], frame_height=frame.shape[:2][1], isRoot=True, depth=1)
+#test_new_model = RecursiveQuadModel(frame_width=frame.shape[:2][1], frame_height=frame.shape[:2][0], isRoot=True, depth=0)
+model = RecursiveQuadModel().load(model_path)
 
-playground_button = tk.Button(
-    root, 
-    text="Launch Playground", 
-    command=gui_playground, 
-    width=20, 
-    height=2
-).pack()
+calibration = False 
+useModel = False 
+training = False 
 
-root.mainloop()
+print(f"frame dimensions (y, x): {frame.shape[:2]}")
+
+if not cap.isOpened(): 
+    print("Failed to get video")
+    quit() 
+
+while True: 
+    ret, frame = cap.read()
+    h, w = frame.shape[:2] 
+
+    if not ret: 
+        status = "Failed to get frame"
+        continue 
+    
+    landmarker_results = feature_extractor.extract_landmarks(frame)
+    if not landmarker_results: 
+        status = "Failed to get landmarks" 
+    else:  
+        #for landmark in data_collector.parse_landmarks(landmarks): 
+            #x = int(landmark.x * w) 
+            #y = int(landmark.y * h)
+            #cv2.circle(frame, (x,y), 5, (255, 0, 0))
+
+        landmarks = landmarker_results[0]
+        matrix = feature_extractor.matrix_to_euler(landmarker_results[1]) 
+        features = model.collector.extractor.extract_from_landmarks(landmarks, matrix)
+        cv2.putText(frame, f"yaw roll pitch: {int(matrix[0])}, {int(matrix[1])}, {int(matrix[2])}", (0, 200), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0,0,0))
+
+
+
+
+
+        if calibration: 
+            status = "Entered calibration"
+            mouse_xy = pyautogui.position()
+            mouse_xy = [mouse_xy[0] / SCREEN_WIDTH * w, mouse_xy[1] / SCREEN_HEIGHT * h]
+            if not mouse_xy: 
+                print("Failed to get mouse position")
+                continue 
+            status += str(model.collect(mouse_xy, frame))
+
+
+
+        else: 
+            status = "Not in calibration"
+
+            if training: 
+                model.train() 
+                training = False 
+            else: 
+                if useModel: 
+                    predicted = model.predict(features)
+                    status = f"Prediction: {predicted}"
+
+                    cv2.rectangle(frame, predicted[0], predicted[1], (255, 255, 0), 3)
+                    
+                else: 
+                    # show eye centre 
+                    #eye_centres = data_collector.compute_eye_centre(landmarks)
+                    #left_centre = (int(eye_centres[0][0] * w), int(eye_centres[0][1] * h)) 
+                    #right_centre = (int(eye_centres[1][0] * w), int(eye_centres[1][1] * h))
+                    #cv2.circle(frame, left_centre, 3, (255, 0, 0))
+                    #cv2.circle(frame, right_centre, 3, (255, 0, 0))
+                    pass 
+
+
+
+
+
+    cv2.putText(frame, str(status), (100, 100), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+    cv2.imshow(winname, frame)
+
+
+    # flow control block 
+    key = cv2.waitKey(1)
+    if key & 0xFF == ord('q'): 
+        break 
+    elif key & 0xFF == ord("c"): 
+        if calibration: calibration = False 
+        elif not useModel and not training and not calibration: calibration = True 
+    elif key & 0xFF == ord('t'): 
+        if not calibration and not useModel and not training: training = True 
+        else: training = False 
+    elif key & 0xFF == ord('u'): 
+        if not training and not calibration and not useModel: useModel = True
+        else: useModel=False
+    elif key & 0xFF == ord("s"): 
+        model.save(model_path) 
+    elif key & 0xFF == ord("l"): 
+        model = model.load(model_path)
+    
+
+
+
+cv2.destroyAllWindows()
