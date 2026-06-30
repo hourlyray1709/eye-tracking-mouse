@@ -101,7 +101,7 @@ class RecursiveQuadModel(QuadModel):
         if self.isRoot: 
             self.collector.collect(mouse_position, frame)  
     
-    def save(self, path="model/temporary.pkl"): 
+    def save(self, path="v1/model/temporary.pkl"): 
         temp = self.collector.extractor 
         self.collector.extractor = None 
         with open(path, "wb") as file: 
@@ -109,7 +109,7 @@ class RecursiveQuadModel(QuadModel):
         self.collector.extractor = temp 
         print(f"successfully saved model to {path}")
 
-    def load(self, path="model/temporary.pkl"): 
+    def load(self, path="v1/model/temporary.pkl"): 
         with open(path, "rb") as file: 
             obj = pickle.load(file)
             obj.collector.extractor = FeatureExtractor()

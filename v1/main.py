@@ -1,5 +1,4 @@
 import cv2 
-from gui import *
 from model import * 
 import pyautogui  
 
@@ -13,7 +12,7 @@ cv2.namedWindow(winname, cv2.WINDOW_NORMAL)
 cv2.setWindowProperty(winname, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 # MODEL CONFIGS 
-model_path = "model/depth_0.pkl"
+model_path = "v1/model/depth_0.pkl"
 
 
 
